@@ -4,6 +4,7 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/PawnMovementComponent.h"
+#include "AHWeapon.h"
 
 // Sets default values
 AAHCharacter::AAHCharacter()
@@ -19,13 +20,31 @@ AAHCharacter::AAHCharacter()
 	CameraComp->SetupAttachment(SpringArmComp);
 
 	GetMovementComponent()->GetNavAgentPropertiesRef().bCanCrouch = true;
+
+	ZoomFOV = 65.0f;
+	ZoomInterpSpeed = 20.0f;
+
+	WeaponAttachSocketName = "WeaponSocket";
 }
 
 // Called when the game starts or when spawned
 void AAHCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	DefaultFOV = CameraComp->FieldOfView;
+
+	// Spawn a default weapon
+	FActorSpawnParameters SpawnParas;
+	SpawnParas.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	CurrentWeapon = GetWorld()->SpawnActor<AAHWeapon>(StarterWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParas);
+
+	if (CurrentWeapon)
+	{
+		CurrentWeapon->SetOwner(this);
+		CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachSocketName);
+	}
 }
 
 void AAHCharacter::MoveForward(float Value)
@@ -48,11 +67,30 @@ void AAHCharacter::EndCrouch()
 	UnCrouch();
 }
 
+void AAHCharacter::BeginZoom()
+{
+	b_WantsToZoom = true;
+}
+
+void AAHCharacter::EndZoom()
+{
+	b_WantsToZoom = false;
+}
+
+void AAHCharacter::Fire()
+{
+	CurrentWeapon->Fire();
+}
+
 // Called every frame
 void AAHCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	float TargetFOV = b_WantsToZoom ? ZoomFOV : DefaultFOV;
+	float NewFOV = FMath::FInterpTo(CameraComp->FieldOfView, TargetFOV, DeltaTime, ZoomInterpSpeed);
+
+	CameraComp->FieldOfView = NewFOV;
 }
 
 // Called to bind functionality to input
@@ -68,7 +106,13 @@ void AAHCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 	PlayerInputComponent->BindAction("Crouch", IE_Pressed, this, &AAHCharacter::BeginCrouch);
 	PlayerInputComponent->BindAction("Crouch", IE_Released, this, &AAHCharacter::EndCrouch);
+
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AAHCharacter::Jump);
+
+	PlayerInputComponent->BindAction("Zoom", IE_Pressed, this, &AAHCharacter::BeginZoom);
+	PlayerInputComponent->BindAction("Zoom", IE_Released, this, &AAHCharacter::EndZoom);
+
+	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AAHCharacter::Fire);
 }
 
 FVector AAHCharacter::GetPawnViewLocation() const
