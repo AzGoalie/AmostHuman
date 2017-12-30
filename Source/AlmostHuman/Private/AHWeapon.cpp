@@ -8,6 +8,7 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "AlmostHuman.h"
+#include "TimerManager.h"
 
 static int32 DebugWeaponDrawing = 0;
 FAutoConsoleVariableRef CVARDebugWeaponDrawing(TEXT("AH.DebugWeapons"), 
@@ -25,6 +26,15 @@ AAHWeapon::AAHWeapon()
 	TracerTargetName = "Target";
 
 	BaseDamage = 20.0f;
+
+	RateOfFire = 600;
+}
+
+void AAHWeapon::BeginPlay()
+{
+	Super::BeginPlay();
+
+	TimeBetweenShots = 60.0f / RateOfFire;
 }
 
 void AAHWeapon::Fire()
@@ -92,7 +102,20 @@ void AAHWeapon::Fire()
 		}
 
 		PlayFireEffects(TracerEndPoint);
+
+		LastShotTime = GetWorld()->TimeSeconds;
 	}
+}
+
+void AAHWeapon::StartFire()
+{
+	float FirstDelay = FMath::Max(LastShotTime + TimeBetweenShots - GetWorld()->TimeSeconds, 0.0f);
+	GetWorldTimerManager().SetTimer(Timerhandle_TimeBetweenShots, this, &AAHWeapon::Fire, TimeBetweenShots, true, FirstDelay);
+}
+
+void AAHWeapon::StopFire()
+{
+	GetWorldTimerManager().ClearTimer(Timerhandle_TimeBetweenShots);
 }
 
 void AAHWeapon::PlayFireEffects(FVector TraceEnd)

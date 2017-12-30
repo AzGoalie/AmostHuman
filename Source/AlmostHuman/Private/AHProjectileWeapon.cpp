@@ -19,5 +19,7 @@ void AAHProjectileWeapon::Fire()
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 		GetWorld()->SpawnActor<AActor>(ProjectileClass, MuzzleLocation, EyeRotation, SpawnParams);
+
+		LastShotTime = GetWorld()->TimeSeconds;
 	}
 }

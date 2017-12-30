@@ -9,6 +9,7 @@
 class UCameraComponent;
 class USpringArmComponent;
 class AAHWeapon;
+class UAHHealthComponent;
 
 UCLASS()
 class ALMOSTHUMAN_API AAHCharacter : public ACharacter
@@ -59,7 +60,19 @@ protected:
 	UPROPERTY(VisibleDefaultsOnly, Category = "Player")
 	FName WeaponAttachSocketName;
 
-	void Fire();
+	void StartFire();
+
+	void StopFire();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UAHHealthComponent* HealthComp;
+
+	UFUNCTION()
+	void OnHealthChanged(UAHHealthComponent* OwningHealthComp, float Health, float HealthDelta, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
+
+	/* Pawn died previously */
+	UPROPERTY(BlueprintReadOnly, Category = "Player")
+	bool bDied;
 
 public:	
 	// Called every frame
