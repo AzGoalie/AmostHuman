@@ -8,6 +8,7 @@
 #include "Components/CapsuleComponent.h"
 #include "AlmostHuman.h"
 #include "AHHealthComponent.h"
+#include "Net/UnrealNetwork.h"
 
 // Sets default values
 AAHCharacter::AAHCharacter()
@@ -40,20 +41,22 @@ void AAHCharacter::BeginPlay()
 	Super::BeginPlay();
 
 	DefaultFOV = CameraComp->FieldOfView;
-
-	// Spawn a default weapon
-	FActorSpawnParameters SpawnParas;
-	SpawnParas.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-	CurrentWeapon = GetWorld()->SpawnActor<AAHWeapon>(StarterWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParas);
-
-	if (CurrentWeapon)
-	{
-		CurrentWeapon->SetOwner(this);
-		CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachSocketName);
-	}
-
 	HealthComp->OnHealthChanged.AddDynamic(this, &AAHCharacter::OnHealthChanged);
+
+	if (Role == ROLE_Authority)
+	{
+		// Spawn a default weapon
+		FActorSpawnParameters SpawnParas;
+		SpawnParas.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+		CurrentWeapon = GetWorld()->SpawnActor<AAHWeapon>(StarterWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParas);
+
+		if (CurrentWeapon)
+		{
+			CurrentWeapon->SetOwner(this);
+			CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachSocketName);
+		}
+	}
 }
 
 void AAHCharacter::MoveForward(float Value)
@@ -158,4 +161,11 @@ FVector AAHCharacter::GetPawnViewLocation() const
 	}
 
 	return Super::GetPawnViewLocation();
+}
+
+void AAHCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AAHCharacter, CurrentWeapon);
 }

@@ -10,6 +10,19 @@ class USkeletalMeshComponent;
 class UDamageType;
 class UParticleSystem;
 
+USTRUCT()
+struct FHitScanTrace
+{
+	GENERATED_BODY();
+
+public:
+	UPROPERTY()
+	TEnumAsByte<EPhysicalSurface> SurfaceType;
+
+	UPROPERTY()
+	FVector_NetQuantize TraceTo;
+};
+
 UCLASS()
 class ALMOSTHUMAN_API AAHWeapon : public AActor
 {
@@ -26,6 +39,8 @@ protected:
 	USkeletalMeshComponent* MeshComp;
 
 	void PlayFireEffects(FVector TraceEnd);
+
+	void PlayImpactEffects(EPhysicalSurface SurfaceType, FVector ImpactPoint);
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	TSubclassOf<UDamageType> DamageType;
@@ -56,6 +71,9 @@ protected:
 
 	virtual void Fire();
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerFire();
+
 	FTimerHandle Timerhandle_TimeBetweenShots;
 
 	float LastShotTime;
@@ -66,6 +84,12 @@ protected:
 
 	// Derived from RateOfFire
 	float TimeBetweenShots;
+
+	UPROPERTY(ReplicatedUsing=OnRep_HitScanTrace)
+	FHitScanTrace HitScanTrace;
+
+	UFUNCTION()
+	void OnRep_HitScanTrace();
 
 public:
 	void StartFire();

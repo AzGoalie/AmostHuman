@@ -52,6 +52,7 @@ protected:
 
 	void EndZoom();
 
+	UPROPERTY(Replicated)
 	AAHWeapon* CurrentWeapon;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Player")
