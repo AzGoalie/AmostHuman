@@ -48,7 +48,10 @@ void AAHTrackerBot::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	NextPathPoint = GetNextPathPoint();
+	if (Role == ROLE_Authority)
+	{
+		NextPathPoint = GetNextPathPoint();
+	}
 }
 
 void AAHTrackerBot::HandleTakeDamage(UAHHealthComponent* OwningHealthComp, float Health, float HealthDelta, const class UDamageType* DamageType,
@@ -93,18 +96,22 @@ void AAHTrackerBot::SelfDestruct()
 	bExploded = true;
 
 	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionEffect, GetActorLocation());
-
-	TArray<AActor*> IgnoredActors;
-	IgnoredActors.Add(this);
-
-	UGameplayStatics::ApplyRadialDamage(this, ExplosionDamage, GetActorLocation(), ExplosionRadius, nullptr, IgnoredActors, this, GetInstigatorController(), true);
-
-	DrawDebugSphere(GetWorld(), GetActorLocation(), ExplosionRadius, 12, FColor::Red, false, 2.0f, 0.0f, 1.0f);
-
-
 	UGameplayStatics::PlaySoundAtLocation(this, ExplodeSound, GetActorLocation());
 
-	Destroy();
+	MeshComp->SetVisibility(false, true);
+	MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	if (Role == ROLE_Authority)
+	{
+		TArray<AActor*> IgnoredActors;
+		IgnoredActors.Add(this);
+
+		UGameplayStatics::ApplyRadialDamage(this, ExplosionDamage, GetActorLocation(), ExplosionRadius, nullptr, IgnoredActors, this, GetInstigatorController(), true);
+
+		DrawDebugSphere(GetWorld(), GetActorLocation(), ExplosionRadius, 12, FColor::Red, false, 2.0f, 0.0f, 1.0f);
+
+		SetLifeSpan(2.0f);
+	}
 }
 
 void AAHTrackerBot::DamageSelf()
@@ -117,42 +124,45 @@ void AAHTrackerBot::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	float DistanceToTarget = (GetActorLocation() - NextPathPoint).Size();
-
-	if (DistanceToTarget <= RequiredDistanceToTarget)
+	if (Role == ROLE_Authority && !bExploded)
 	{
-		NextPathPoint = GetNextPathPoint();
+		float DistanceToTarget = (GetActorLocation() - NextPathPoint).Size();
+		if (DistanceToTarget <= RequiredDistanceToTarget)
+		{
+			NextPathPoint = GetNextPathPoint();
+		}
+
+		else
+		{
+			// Keep moving towards next target
+			FVector ForcceDirection = NextPathPoint - GetActorLocation();
+			ForcceDirection.Normalize();
+			ForcceDirection *= MovementForce;
+
+			MeshComp->AddForce(ForcceDirection, NAME_None, bUseVelocityChange);
+
+			DrawDebugDirectionalArrow(GetWorld(), GetActorLocation(), GetActorLocation() + ForcceDirection, 32, FColor::Yellow, false, 0.0f, 0, 1.0f);
+		}
+
+		DrawDebugSphere(GetWorld(), NextPathPoint, 20, 12, FColor::Yellow, false, 0.0f, 1.0f);
 	}
-
-	else
-	{
-		// Keep moving towards next target
-		FVector ForcceDirection = NextPathPoint - GetActorLocation();
-		ForcceDirection.Normalize();
-		ForcceDirection *= MovementForce;
-
-		MeshComp->AddForce(ForcceDirection, NAME_None, bUseVelocityChange);
-
-		DrawDebugDirectionalArrow(GetWorld(), GetActorLocation(), GetActorLocation() + ForcceDirection, 32, FColor::Yellow, false, 0.0f, 0, 1.0f);
-	}
-
-	DrawDebugSphere(GetWorld(), NextPathPoint, 20, 12, FColor::Yellow, false, 0.0f, 1.0f);
 }
 
 void AAHTrackerBot::NotifyActorBeginOverlap(AActor* OtherActor)
 {
-
-	if (!bStartedSelfDestruction)
+	if (!bStartedSelfDestruction && !bExploded)
 	{
-		bStartedSelfDestruction = true;
-
 		AAHCharacter* PlayerPawn = Cast<AAHCharacter>(OtherActor);
 		if (PlayerPawn)
 		{
 			// We overlapped witha player!
 			// Start self destruction sequence
-			GetWorld()->GetTimerManager().SetTimer(TimerHandle_SelfDamage, this, &AAHTrackerBot::DamageSelf, SelfDamageInterval, true, 0.0f);
-		
+			if (Role == ROLE_Authority)
+			{
+				GetWorld()->GetTimerManager().SetTimer(TimerHandle_SelfDamage, this, &AAHTrackerBot::DamageSelf, SelfDamageInterval, true, 0.0f);
+			}
+	
+			bStartedSelfDestruction = true;
 			UGameplayStatics::SpawnSoundAttached(SelfDestructSound, RootComponent);
 		}
 	}
