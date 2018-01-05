@@ -4,10 +4,10 @@
 #include "Components/StaticMeshComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "AI/Navigation/NavigationSystem.h"
-#include "AI/Navigation/NavigationPath.h"
 #include "GameFramework/Character.h"
-#include "AHHealthComponent.h"
+#include "AI/Navigation/NavigationPath.h"
 #include "DrawDebugHelpers.h"
+#include "AHHealthComponent.h"
 #include "AHCharacter.h"
 #include "Components/SphereComponent.h"
 #include "Sound/SoundCue.h"
@@ -15,7 +15,7 @@
 // Sets default values
 AAHTrackerBot::AAHTrackerBot()
 {
- 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
@@ -33,12 +33,12 @@ AAHTrackerBot::AAHTrackerBot()
 	SphereComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	SphereComp->SetupAttachment(RootComponent);
 
-	bUseVelocityChange = true;
-	MovementForce = 500;
+	bUseVelocityChange = false;
+	MovementForce = 1000;
 	RequiredDistanceToTarget = 100;
 
-	ExplosionDamage = 100;
-	ExplosionRadius = 400;
+	ExplosionDamage = 60;
+	ExplosionRadius = 350;
 
 	SelfDamageInterval = 0.25f;
 }
@@ -47,10 +47,15 @@ AAHTrackerBot::AAHTrackerBot()
 void AAHTrackerBot::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	if (Role == ROLE_Authority)
 	{
+		// Find initial move-to
 		NextPathPoint = GetNextPathPoint();
+
+		// Every second we update our power-level based on nearby bots (CHALLENGE CODE)
+		FTimerHandle TimerHandle_CheckPowerLevel;
+		GetWorldTimerManager().SetTimer(TimerHandle_CheckPowerLevel, this, &AAHTrackerBot::OnCheckNearbyBots, 1.0f, true);
 	}
 }
 
@@ -77,8 +82,7 @@ FVector AAHTrackerBot::GetNextPathPoint()
 {
 	ACharacter* PlayerPawn = UGameplayStatics::GetPlayerCharacter(this, 0);
 	UNavigationPath* NavPath = UNavigationSystem::FindPathToActorSynchronously(this, GetActorLocation(), PlayerPawn);
-
-	if (NavPath->PathPoints.Num() > 1)
+	if (NavPath && NavPath->PathPoints.Num() > 1)
 	{
 		return NavPath->PathPoints[1];
 	}
@@ -96,6 +100,7 @@ void AAHTrackerBot::SelfDestruct()
 	bExploded = true;
 
 	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplosionEffect, GetActorLocation());
+
 	UGameplayStatics::PlaySoundAtLocation(this, ExplodeSound, GetActorLocation());
 
 	MeshComp->SetVisibility(false, true);
@@ -106,9 +111,13 @@ void AAHTrackerBot::SelfDestruct()
 		TArray<AActor*> IgnoredActors;
 		IgnoredActors.Add(this);
 
-		UGameplayStatics::ApplyRadialDamage(this, ExplosionDamage, GetActorLocation(), ExplosionRadius, nullptr, IgnoredActors, this, GetInstigatorController(), true);
+		// Increase damage based on the power level (challenge code)
+		float ActualDamage = ExplosionDamage + (ExplosionDamage * PowerLevel);
 
-		DrawDebugSphere(GetWorld(), GetActorLocation(), ExplosionRadius, 12, FColor::Red, false, 2.0f, 0.0f, 1.0f);
+		// Apply Damage!
+		UGameplayStatics::ApplyRadialDamage(this, ActualDamage, GetActorLocation(), ExplosionRadius, nullptr, IgnoredActors, this, GetInstigatorController(), true);
+
+		DrawDebugSphere(GetWorld(), GetActorLocation(), ExplosionRadius, 12, FColor::Red, false, 2.0f, 0, 1.0f);
 
 		SetLifeSpan(2.0f);
 	}
@@ -127,21 +136,23 @@ void AAHTrackerBot::Tick(float DeltaTime)
 	if (Role == ROLE_Authority && !bExploded)
 	{
 		float DistanceToTarget = (GetActorLocation() - NextPathPoint).Size();
+
 		if (DistanceToTarget <= RequiredDistanceToTarget)
 		{
 			NextPathPoint = GetNextPathPoint();
-		}
 
+			DrawDebugString(GetWorld(), GetActorLocation(), "Target Reached!");
+		}
 		else
 		{
 			// Keep moving towards next target
-			FVector ForcceDirection = NextPathPoint - GetActorLocation();
-			ForcceDirection.Normalize();
-			ForcceDirection *= MovementForce;
+			FVector ForceDirection = NextPathPoint - GetActorLocation();
+			ForceDirection.Normalize();
+			ForceDirection *= MovementForce;
 
-			MeshComp->AddForce(ForcceDirection, NAME_None, bUseVelocityChange);
+			MeshComp->AddForce(ForceDirection, NAME_None, bUseVelocityChange);
 
-			DrawDebugDirectionalArrow(GetWorld(), GetActorLocation(), GetActorLocation() + ForcceDirection, 32, FColor::Yellow, false, 0.0f, 0, 1.0f);
+			DrawDebugDirectionalArrow(GetWorld(), GetActorLocation(), GetActorLocation() + ForceDirection, 32, FColor::Yellow, false, 0.0f, 0, 1.0f);
 		}
 
 		DrawDebugSphere(GetWorld(), NextPathPoint, 20, 12, FColor::Yellow, false, 0.0f, 1.0f);
@@ -150,20 +161,76 @@ void AAHTrackerBot::Tick(float DeltaTime)
 
 void AAHTrackerBot::NotifyActorBeginOverlap(AActor* OtherActor)
 {
+	Super::NotifyActorBeginOverlap(OtherActor);
+
 	if (!bStartedSelfDestruction && !bExploded)
 	{
 		AAHCharacter* PlayerPawn = Cast<AAHCharacter>(OtherActor);
 		if (PlayerPawn)
 		{
-			// We overlapped witha player!
-			// Start self destruction sequence
+			// We overlapped with a player!
 			if (Role == ROLE_Authority)
 			{
-				GetWorld()->GetTimerManager().SetTimer(TimerHandle_SelfDamage, this, &AAHTrackerBot::DamageSelf, SelfDamageInterval, true, 0.0f);
+				// Start self destruction sequence
+				GetWorldTimerManager().SetTimer(TimerHandle_SelfDamage, this, &AAHTrackerBot::DamageSelf, SelfDamageInterval, true, 0.0f);
 			}
-	
+
 			bStartedSelfDestruction = true;
+
 			UGameplayStatics::SpawnSoundAttached(SelfDestructSound, RootComponent);
 		}
 	}
+}
+
+void AAHTrackerBot::OnCheckNearbyBots()
+{
+	// distance to check for nearby bots
+	const float Radius = 600;
+
+	// Create temporary collision shape for overlaps
+	FCollisionShape CollShape;
+	CollShape.SetSphere(Radius);
+
+	// Only find Pawns (eg. players and AI bots)
+	FCollisionObjectQueryParams QueryParams;
+	// Our tracker bot's mesh component is set to Physics Body in Blueprint (default profile of physics simulated actors)
+	QueryParams.AddObjectTypesToQuery(ECC_PhysicsBody);
+	QueryParams.AddObjectTypesToQuery(ECC_Pawn);
+
+	TArray<FOverlapResult> Overlaps;
+	GetWorld()->OverlapMultiByObjectType(Overlaps, GetActorLocation(), FQuat::Identity, QueryParams, CollShape);
+
+	DrawDebugSphere(GetWorld(), GetActorLocation(), Radius, 12, FColor::White, false, 1.0f);
+
+	int32 NrOfBots = 0;
+	// loop over the results using a "range based for loop"
+	for (FOverlapResult Result : Overlaps)
+	{
+		// Check if we overlapped with another tracker bot (ignoring players and other bot types)
+		AAHTrackerBot* Bot = Cast<AAHTrackerBot>(Result.GetActor());
+		// Ignore this trackerbot instance
+		if (Bot && Bot != this)
+		{
+			NrOfBots++;
+		}
+	}
+
+	const int32 MaxPowerLevel = 4;
+
+	// Clamp between min=0 and max=4
+	PowerLevel = FMath::Clamp(NrOfBots, 0, MaxPowerLevel);
+
+	// Update the material color
+	if (MatInst == nullptr)
+	{
+		MatInst = MeshComp->CreateAndSetMaterialInstanceDynamicFromMaterial(0, MeshComp->GetMaterial(0));
+	}
+	if (MatInst)
+	{
+		float Alpha = PowerLevel / (float)MaxPowerLevel;
+		MatInst->SetScalarParameterValue("PowerLevelAlpha", Alpha);
+	}
+
+	// Draw on the bot location
+	DrawDebugString(GetWorld(), FVector(0, 0, 0), FString::FromInt(PowerLevel), this, FColor::White, 1.0f, true);
 }

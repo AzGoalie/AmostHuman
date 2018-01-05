@@ -24,30 +24,31 @@ protected:
 	virtual void BeginPlay() override;
 
 	UPROPERTY(VisibleDefaultsOnly, Category = "Components")
-	UStaticMeshComponent* MeshComp;
+		UStaticMeshComponent* MeshComp;
 
 	UPROPERTY(VisibleDefaultsOnly, Category = "Components")
-	UAHHealthComponent* HealthComp;
+		UAHHealthComponent* HealthComp;
 
 	UPROPERTY(VisibleDefaultsOnly, Category = "Components")
-	USphereComponent* SphereComp;
+		USphereComponent* SphereComp;
 
 	UFUNCTION()
-	void HandleTakeDamage(UAHHealthComponent* OwningHealthComp, float Health, float HealthDelta, const class UDamageType* DamageType,
-		class AController* InstigatedBy, AActor* DamageCauser);
+		void HandleTakeDamage(UAHHealthComponent* OwningHealthComp, float Health, float HealthDelta, const class UDamageType* DamageType,
+			class AController* InstigatedBy, AActor* DamageCauser);
 
 	FVector GetNextPathPoint();
 
+	// Next point in navigation path
 	FVector NextPathPoint;
 
 	UPROPERTY(EditDefaultsOnly, Category = "TrackerBot")
-	float MovementForce;
+		float MovementForce;
 
 	UPROPERTY(EditDefaultsOnly, Category = "TrackerBot")
-	bool bUseVelocityChange;
+		bool bUseVelocityChange;
 
 	UPROPERTY(EditDefaultsOnly, Category = "TrackerBot")
-	float RequiredDistanceToTarget;
+		float RequiredDistanceToTarget;
 
 	// Dynamic material to pulse on damage
 	UMaterialInstanceDynamic* MatInst;
@@ -55,30 +56,35 @@ protected:
 	void SelfDestruct();
 
 	UPROPERTY(EditDefaultsOnly, Category = "TrackerBot")
-	UParticleSystem* ExplosionEffect;
+		UParticleSystem* ExplosionEffect;
 
 	bool bExploded;
 
-	UPROPERTY(EditDefaultsOnly, Category = "TrackerBot")
-	float ExplosionRadius;
-
-	UPROPERTY(EditDefaultsOnly, Category = "TrackerBot")
-	float ExplosionDamage;
-
-	UPROPERTY(EditDefaultsOnly, Category = "TrackerBot")
-	float SelfDamageInterval;
-
+	// Did we already kick off self destruct timer
 	bool bStartedSelfDestruction;
+
+	UPROPERTY(EditDefaultsOnly, Category = "TrackerBot")
+		float ExplosionRadius;
+
+	UPROPERTY(EditDefaultsOnly, Category = "TrackerBot")
+		float ExplosionDamage;
+
+	UPROPERTY(EditDefaultsOnly, Category = "TrackerBot")
+		float SelfDamageInterval;
 
 	FTimerHandle TimerHandle_SelfDamage;
 
 	void DamageSelf();
 
 	UPROPERTY(EditDefaultsOnly, Category = "TrackerBot")
-	USoundCue* SelfDestructSound;
+		USoundCue* SelfDestructSound;
 
 	UPROPERTY(EditDefaultsOnly, Category = "TrackerBot")
-	USoundCue* ExplodeSound;
+		USoundCue* ExplodeSound;
+
+	void OnCheckNearbyBots();
+
+	int32 PowerLevel;
 
 public:	
 	// Called every frame
