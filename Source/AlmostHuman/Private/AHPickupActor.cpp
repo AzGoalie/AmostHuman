@@ -18,7 +18,7 @@ AAHPickupActor::AAHPickupActor()
 	DecalComp->DecalSize = FVector(64.0f, 75.0f, 75.0f);
 	DecalComp->SetupAttachment(RootComponent);
 
-
+	CooldownDuration = 10.0f;
 }
 
 // Called when the game starts or when spawned
