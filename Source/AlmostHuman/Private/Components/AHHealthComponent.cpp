@@ -75,3 +75,8 @@ void UAHHealthComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 
 	DOREPLIFETIME(UAHHealthComponent, Health);
 }
+
+float UAHHealthComponent::GetHealth() const
+{
+	return Health;
+}
