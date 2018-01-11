@@ -3,10 +3,13 @@
 #include "AHGameMode.h"
 #include "TimerManager.h"
 #include "AHHealthComponent.h"
+#include "AHGameState.h"
 
 AAHGameMode::AAHGameMode()
 {
 	TimeBetweenWaves = 2.0f;
+
+	GameStateClass = AAHGameState::StaticClass();
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.TickInterval = 1.0f;
@@ -19,9 +22,20 @@ void AAHGameMode::StartPlay()
 	PrepareForNextWave();
 }
 
+void AAHGameMode::GameOver()
+{
+	EndWave();
+
+	SetWaveState(EWaveState::GameOver);
+
+	// @TODO: Finish up the match, present 'game ove' to players
+	UE_LOG(LogTemp, Log, TEXT("GAME OVER! All players died!"));
+}
+
 void AAHGameMode::PrepareForNextWave()
 {
 	GetWorldTimerManager().SetTimer(TimerHandle_NextWaveStart, this, &AAHGameMode::StartWave, TimeBetweenWaves, false);
+	SetWaveState(EWaveState::WaitingToStart);
 }
 
 void AAHGameMode::StartWave()
@@ -30,11 +44,13 @@ void AAHGameMode::StartWave()
 	NumberOfBotsToSpawn = 2 * WaveCount;
 
 	GetWorldTimerManager().SetTimer(TimerHandle_BotSpawner, this, &AAHGameMode::SpawnBotTimerElapsed, 1.0f, true, 0.0f);
+	SetWaveState(EWaveState::WaveInProgress);
 }
 
 void AAHGameMode::EndWave()
 {
 	GetWorldTimerManager().ClearTimer(TimerHandle_BotSpawner);
+	SetWaveState(EWaveState::WaitingToComplete);
 }
 
 void AAHGameMode::SpawnBotTimerElapsed()
@@ -76,8 +92,30 @@ void AAHGameMode::CheckWaveState()
 
 	if (!bIsAnyBotAlive)
 	{
+		SetWaveState(EWaveState::WaveComplete);
 		PrepareForNextWave();
 	}
+}
+
+void AAHGameMode::CheckAnyPlayerAlive()
+{
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		APlayerController* PC = It->Get();
+		if (PC && PC->GetPawn())
+		{
+			APawn* MyPawn = PC->GetPawn();
+			UAHHealthComponent* HealthComp = Cast<UAHHealthComponent>(MyPawn->GetComponentByClass(UAHHealthComponent::StaticClass()));
+			if (ensure(HealthComp)&& HealthComp->GetHealth() > 0.0f)
+			{
+				// A player is still alive
+				return;
+			}
+		}
+	}
+
+	// No Player alive
+	GameOver();
 }
 
 void AAHGameMode::Tick(float DeltaSeconds)
@@ -85,4 +123,15 @@ void AAHGameMode::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 
 	CheckWaveState();
+
+	CheckAnyPlayerAlive();
+}
+
+void AAHGameMode::SetWaveState(EWaveState NewState)
+{
+	AAHGameState* GS = GetGameState<AAHGameState>();
+	if (ensureAlways(GS))
+	{
+		GS->SetWaveState(NewState);
+	}
 }
