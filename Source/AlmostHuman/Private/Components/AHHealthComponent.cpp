@@ -2,6 +2,7 @@
 
 #include "AHHealthComponent.h"
 #include "Net/UnrealNetwork.h"
+#include "AHGameMode.h"
 
 
 // Sets default values for this component's properties
@@ -12,6 +13,8 @@ UAHHealthComponent::UAHHealthComponent()
 	PrimaryComponentTick.bCanEverTick = true;
 
 	DefaultHealth = 100;
+
+	bIsDead = false;
 
 	SetIsReplicated(true);
 }
@@ -43,7 +46,7 @@ void UAHHealthComponent::OnRep_Health(float OldHealth)
 
 void UAHHealthComponent::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser)
 {
-	if (Damage <= 0.0f)
+	if (Damage <= 0.0f || bIsDead)
 	{
 		return;
 	}
@@ -52,7 +55,18 @@ void UAHHealthComponent::HandleTakeAnyDamage(AActor* DamagedActor, float Damage,
 
 	UE_LOG(LogTemp, Log, TEXT("Health Changed: %s"), *FString::SanitizeFloat(Health));
 
+	bIsDead = Health <= 0.0f;
+
 	OnHealthChanged.Broadcast(this, Health, Damage, DamageType, InstigatedBy, DamageCauser);
+
+	if (bIsDead)
+	{
+		AAHGameMode* GM = Cast<AAHGameMode>(GetWorld()->GetAuthGameMode());
+		if (GM)
+		{
+			GM->OnActorKilled.Broadcast(GetOwner(), DamageCauser, InstigatedBy);
+		}
+	}
 }
 
 void UAHHealthComponent::Heal(float HealAmount)

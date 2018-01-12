@@ -4,12 +4,14 @@
 #include "TimerManager.h"
 #include "AHHealthComponent.h"
 #include "AHGameState.h"
+#include "AHPlayerState.h"
 
 AAHGameMode::AAHGameMode()
 {
 	TimeBetweenWaves = 2.0f;
 
 	GameStateClass = AAHGameState::StaticClass();
+	PlayerStateClass = AAHPlayerState::StaticClass();
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.TickInterval = 1.0f;
