@@ -29,8 +29,7 @@ void AAHGameMode::GameOver()
 	EndWave();
 
 	SetWaveState(EWaveState::GameOver);
-
-	// @TODO: Finish up the match, present 'game ove' to players
+	// @TODO: Finish up the match, present 'game over' to players
 	UE_LOG(LogTemp, Log, TEXT("GAME OVER! All players died!"));
 }
 
@@ -68,8 +67,8 @@ void AAHGameMode::SpawnBotTimerElapsed()
 
 void AAHGameMode::CheckWaveState()
 {
-	bool bisPreparingForWave = GetWorldTimerManager().IsTimerActive(TimerHandle_NextWaveStart);
-	if (NumberOfBotsToSpawn > 0 || bisPreparingForWave)
+	bool bIsPreparingForWave = GetWorldTimerManager().IsTimerActive(TimerHandle_NextWaveStart);
+	if (NumberOfBotsToSpawn > 0 || bIsPreparingForWave)
 	{
 		return;
 	}
@@ -108,7 +107,7 @@ void AAHGameMode::CheckAnyPlayerAlive()
 		{
 			APawn* MyPawn = PC->GetPawn();
 			UAHHealthComponent* HealthComp = Cast<UAHHealthComponent>(MyPawn->GetComponentByClass(UAHHealthComponent::StaticClass()));
-			if (ensure(HealthComp)&& HealthComp->GetHealth() > 0.0f)
+			if (ensure(HealthComp) && HealthComp->GetHealth() > 0.0f)
 			{
 				// A player is still alive
 				return;
@@ -116,7 +115,7 @@ void AAHGameMode::CheckAnyPlayerAlive()
 		}
 	}
 
-	// No Player alive
+	// No player alive
 	GameOver();
 }
 
