@@ -13,8 +13,8 @@ UAHHealthComponent::UAHHealthComponent()
 	PrimaryComponentTick.bCanEverTick = true;
 
 	DefaultHealth = 100;
-
 	bIsDead = false;
+	TeamNum = 255;
 
 	SetIsReplicated(true);
 }
@@ -47,6 +47,11 @@ void UAHHealthComponent::OnRep_Health(float OldHealth)
 void UAHHealthComponent::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser)
 {
 	if (Damage <= 0.0f || bIsDead)
+	{
+		return;
+	}
+
+	if (DamageCauser != DamagedActor && IsFriendly(DamagedActor, DamageCauser))
 	{
 		return;
 	}
@@ -93,4 +98,22 @@ void UAHHealthComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 float UAHHealthComponent::GetHealth() const
 {
 	return Health;
+}
+
+bool UAHHealthComponent::IsFriendly(AActor* A, AActor* B)
+{
+	if (A == nullptr || B == nullptr)
+	{
+		return true;
+	}
+
+	UAHHealthComponent* HealthCompA = Cast<UAHHealthComponent>(A->GetComponentByClass(UAHHealthComponent::StaticClass()));
+	UAHHealthComponent* HealthCompB = Cast<UAHHealthComponent>(B->GetComponentByClass(UAHHealthComponent::StaticClass()));
+
+	if (HealthCompA == nullptr || HealthCompB == nullptr)
+	{
+		return true;
+	}
+
+	return HealthCompA->TeamNum == HealthCompB->TeamNum;
 }

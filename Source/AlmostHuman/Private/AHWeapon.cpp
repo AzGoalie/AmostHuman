@@ -27,6 +27,7 @@ AAHWeapon::AAHWeapon()
 	TracerTargetName = "Target";
 
 	BaseDamage = 20.0f;
+	BulletSpread = 2.0f;
 
 	RateOfFire = 600;
 
@@ -60,6 +61,10 @@ void AAHWeapon::Fire()
 
 		FVector ShotDirection = EyeRotation.Vector();
 
+		// Bullet spread
+		float HalfRad = FMath::DegreesToRadians(BulletSpread);
+		ShotDirection = FMath::VRandCone(ShotDirection, HalfRad, HalfRad);
+
 		FVector TraceEnd = EyeLocation + (ShotDirection * 10000);
 
 		FCollisionQueryParams QueryParams;
@@ -86,7 +91,7 @@ void AAHWeapon::Fire()
 				ActualDamage *= 4.0f;
 			}
 			
-			UGameplayStatics::ApplyPointDamage(HitActor, ActualDamage, ShotDirection, Hit, MyOwner->GetInstigatorController(), this, DamageType);
+			UGameplayStatics::ApplyPointDamage(HitActor, ActualDamage, ShotDirection, Hit, MyOwner->GetInstigatorController(), MyOwner, DamageType);
 
 			PlayImpactEffects(SurfaceType, Hit.ImpactPoint);
 

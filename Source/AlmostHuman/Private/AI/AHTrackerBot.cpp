@@ -14,7 +14,7 @@
 
 static int32 DebugTrackerBotDrawing = 0;
 FAutoConsoleVariableRef CVARDebugTrackerBotDrawing(
-	TEXT("COOP.DebugTrackerBot"),
+	TEXT("AlmostHuman.DebugTrackerBot"),
 	DebugTrackerBotDrawing,
 	TEXT("Draw Debug Lines for TrackerBot"),
 	ECVF_Cheat);
@@ -88,14 +88,48 @@ void AAHTrackerBot::HandleTakeDamage(UAHHealthComponent* OwningHealthComp, float
 
 FVector AAHTrackerBot::GetNextPathPoint()
 {
-	ACharacter* PlayerPawn = UGameplayStatics::GetPlayerCharacter(this, 0);
-	UNavigationPath* NavPath = UNavigationSystem::FindPathToActorSynchronously(this, GetActorLocation(), PlayerPawn);
-	if (NavPath && NavPath->PathPoints.Num() > 1)
+	AActor* BestTarget = nullptr;
+	float NearestTargetDistance = FLT_MAX;
+
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		return NavPath->PathPoints[1];
+		APawn* TestPawn = It->Get();
+		if (TestPawn == nullptr || UAHHealthComponent::IsFriendly(TestPawn, this))
+		{
+			continue;
+		}
+
+		UAHHealthComponent* TestPawnHealthComp = Cast<UAHHealthComponent>(TestPawn->GetComponentByClass(UAHHealthComponent::StaticClass()));
+		if (TestPawnHealthComp && TestPawnHealthComp->GetHealth() > 0.0f)
+		{
+			float Distance = (TestPawn->GetActorLocation() - GetActorLocation()).Size();
+			if (Distance < NearestTargetDistance)
+			{
+				BestTarget = TestPawn;
+				NearestTargetDistance = Distance;
+			}
+		}
+	}
+
+	if (BestTarget)
+	{
+		UNavigationPath* NavPath = UNavigationSystem::FindPathToActorSynchronously(this, GetActorLocation(), BestTarget);
+		
+		GetWorldTimerManager().ClearTimer(TimerHandle_RefreshPath);
+		GetWorldTimerManager().SetTimer(TimerHandle_RefreshPath, this, &AAHTrackerBot::RefreshPath, 5.0f, false);
+		
+		if (NavPath && NavPath->PathPoints.Num() > 1)
+		{
+			return NavPath->PathPoints[1];
+		}
 	}
 
 	return GetActorLocation();
+}
+
+void AAHTrackerBot::RefreshPath()
+{
+	NextPathPoint = GetNextPathPoint();
 }
 
 void AAHTrackerBot::SelfDestruct()
@@ -186,7 +220,7 @@ void AAHTrackerBot::NotifyActorBeginOverlap(AActor* OtherActor)
 	if (!bStartedSelfDestruction && !bExploded)
 	{
 		AAHCharacter* PlayerPawn = Cast<AAHCharacter>(OtherActor);
-		if (PlayerPawn)
+		if (PlayerPawn && !UAHHealthComponent::IsFriendly(OtherActor, this))
 		{
 			// We overlapped with a player!
 			if (Role == ROLE_Authority)

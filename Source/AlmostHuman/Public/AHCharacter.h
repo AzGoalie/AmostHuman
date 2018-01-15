@@ -61,10 +61,6 @@ protected:
 	UPROPERTY(VisibleDefaultsOnly, Category = "Player")
 	FName WeaponAttachSocketName;
 
-	void StartFire();
-
-	void StopFire();
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UAHHealthComponent* HealthComp;
 
@@ -83,4 +79,10 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	virtual FVector GetPawnViewLocation() const override;
+
+	UFUNCTION(BlueprintCallable, Category = "Player")
+	void StartFire();
+
+	UFUNCTION(BlueprintCallable, Category = "Player")
+	void StopFire();
 };
