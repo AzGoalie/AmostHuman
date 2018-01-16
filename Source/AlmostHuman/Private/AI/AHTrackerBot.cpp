@@ -146,6 +146,7 @@ void AAHTrackerBot::SelfDestruct()
 	UGameplayStatics::PlaySoundAtLocation(this, ExplodeSound, GetActorLocation());
 
 	MeshComp->SetVisibility(false, true);
+	MeshComp->SetSimulatePhysics(false);
 	MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	if (Role == ROLE_Authority)

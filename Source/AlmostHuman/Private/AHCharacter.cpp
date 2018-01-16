@@ -112,6 +112,7 @@ void AAHCharacter::OnHealthChanged(UAHHealthComponent* OwningHealthComp, float H
 	{
 		// Die!
 		bDied = true;
+		StopFire();
 		GetMovementComponent()->StopMovementImmediately();
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		DetachFromControllerPendingDestroy();
